@@ -10,14 +10,17 @@
 #import "UIView+LCFrame.h"
 
 #define LCScreenW [UIScreen mainScreen].bounds.size.width
-#define LCTitleBarH 40
+//#define LCTitleBarH 40
 
 #define MinTitleMargin 20
 #define MinTitleCount 6
 
-
+static CGFloat const LCTitleBarH = 40;
+static CGFloat const LCNoticeViewMargin = 5;
 
 @interface LCScrollTitleBar ()
+
+
 
 /** 滚动视图 */
 @property(nonatomic,weak) UIScrollView *titleScrollView;
@@ -36,6 +39,8 @@
 /** 是否需要弹出通知 */
 @property(nonatomic,assign) BOOL isShowNoticeView;
 
+/** 标题高度 */
+@property(nonatomic,assign) CGFloat titleheight;
 /** 标题间距 */
 @property(nonatomic,assign) CGFloat titleMargin;
 /** 标题的总宽度 */
@@ -93,7 +98,6 @@
         _titleFont = [UIFont systemFontOfSize:14];
     }
 }
-
 -(void)setIndicatorColor:(UIColor *)indicatorColor{
     _indicatorColor = indicatorColor;
     if (indicatorColor == nil) {
@@ -170,7 +174,7 @@
     if (!_indicatorLine) {
         UIView *indicatorLine = [[UIView alloc] init];
         _indicatorLine = indicatorLine;
-        indicatorLine.backgroundColor = [UIColor redColor];
+        indicatorLine.backgroundColor = _indicatorColor;
         [self.titleScrollView addSubview:_indicatorLine];
     }
     return _indicatorLine;
@@ -186,6 +190,17 @@
         _titleScrollView = titleScrollView;
     }
     return _titleScrollView;
+}
+
+-(void)setTitleColor:(UIColor *)color selectColor:(UIColor *)selColor titleFont:(UIFont *)titleFont{
+    self.norColor = color;
+    self.selColor = selColor;
+    self.titleFont = titleFont;
+}
+
+-(void)setIndicatorColor:(UIColor *)color indicatorHeight:(CGFloat)Height{
+    self.indicatorColor = color;
+    self.indicatorH = Height;
 }
 
 #pragma mark - 初始化操作
@@ -207,7 +222,27 @@
     }
     return self;
 }
+-(instancetype)init{
+    if (self = [super init]) {
+        [self initTitle];
+    }
+    return self;
+}
 
+/**
+ 初始化基本属性
+ */
+- (void)initTitle{
+    self.titleheight = LCTitleBarH;
+    self.isShowNoticeView = NO;
+    self.indicatorH = 1;
+    self.isShowIndicatorLine = YES;
+    self.indicatorColor = nil;
+    self.titleFont = [UIFont systemFontOfSize:14];
+    self.norColor = [UIColor grayColor];
+    self.selColor = [UIColor redColor];
+    
+}
 - (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
@@ -217,39 +252,34 @@
     return self;
 }
 
--(void)awakeFromNib{
-    [super awakeFromNib];
-    
-}
-
 /**
  * 初始化操作
  */
 -(void)setTitleNames:(NSArray *)titleNames{
     _titleNames = titleNames;
     [self setTitleWidth:titleNames];
-    self.noticeView.frame = CGRectMake(0, 0, LCScreenW, 30);
+    self.noticeView.frame = CGRectMake(0, 0, LCScreenW, LCTitleBarH - 10);
     self.titleScrollView.frame = CGRectMake(0, 0, self.lc_width, LCTitleBarH);
     self.titleScrollView.showsHorizontalScrollIndicator = NO;
     CGFloat labX = 0;
     CGFloat labY = 0;
     CGFloat labW = 0;
-    CGFloat labH = 40;
+    CGFloat labH = LCTitleBarH;
     for (int i = 0; i < titleNames.count; i++) {
         UILabel *label = [[UILabel alloc] init];;
         label.tag = i;
         [label setText:titleNames[i]];
         [label setTextAlignment:NSTextAlignmentCenter];
-        [label setFont:[UIFont systemFontOfSize:14]];
-        [label setTextColor:[UIColor grayColor]];
+        [label setFont:self.titleFont];
+        [label setTextColor:self.norColor];
         label.userInteractionEnabled = YES;
-        labW = [self.titleWidths[i] integerValue] + self.titleMargin * 2;
+        labW = [_titleWidths[i] integerValue] + _titleMargin * 2;
         label.frame = CGRectMake(labX, labY, labW, labH);
         labX = labX + labW;
         [self.titleLabels addObject:label];
         [_titleScrollView addSubview:label];
         if (i == 0) {
-            self.indicatorLine.frame = CGRectMake(self.titleMargin, 39, self.lc_width, 1);
+            self.indicatorLine.frame = CGRectMake(_titleMargin, _titleheight - _indicatorH, self.lc_width, _indicatorH);
             self.indicatorLine.lc_width = [self.titleWidths[i] integerValue];
             self.indicatorLine.lc_centerX = label.lc_centerX;
             [self selectLabel:label];
@@ -264,48 +294,16 @@
 }
 
 
-#pragma mark - 计算标题
-// 计算标题的宽度 间距 与总长度
-- (void)setTitleWidth:(NSArray *)titleNames{
-    CGFloat totalWidth = 0;
-    for (NSString *title in titleNames) {
-        CGFloat textWidth = [self calculateTitleSize:title withMaxSize:CGSizeMake(MAXFLOAT, 0) withTextFont:[UIFont systemFontOfSize:14]].width;
-        totalWidth += textWidth;
-        [self.titleWidths addObject:@(textWidth)];
-    }
-    _totalWidth = totalWidth;
-    CGFloat titleMargin = (self.lc_width - totalWidth) / (titleNames.count + 1);
-    if (totalWidth > self.lc_width) {
-        _titleMargin = 20;
-    }else{
-//        if (self.lc_width < LCScreenW) {
-        
-            if (titleNames.count <= 6) {
-                _titleMargin = (self.lc_width / titleNames.count - _totalWidth / titleNames.count) / 2;
-            }else{
-                
-                _titleMargin = titleMargin > 20 ? titleMargin : 20;
-            }
-//        }else{
-        
-//        }
-    }
-}
-/**
- *  计算文字的 尺寸
- */
--(CGSize)calculateTitleSize:(NSString *)title withMaxSize:(CGSize)maxSize withTextFont:(UIFont *)font{
-    return [title boundingRectWithSize:maxSize options:NSStringDrawingUsesLineFragmentOrigin attributes:@{NSFontAttributeName:font} context:nil].size;
-}
+
 #pragma mark - 标题的点击事件
 /**
  *  监听标题的点击
  */
 -(void)titleClick:(UITapGestureRecognizer *)tap{
     UILabel *label = (UILabel *)tap.view;
-    //    if ([self.delegate respondsToSelector:@selector(titleView:didClickBtnIndex:)]) {
-    //        [self.delegate titleView:self didClickBtnIndex:label.tag];
-    //    }
+        if ([self.delegate respondsToSelector:@selector(scrollTitleBar:didClickIndex:)]) {
+            [self.delegate scrollTitleBar:self didClickIndex:label.tag];
+        }
     if (label == self.selectLabel){
         [self showNoticeView:nil];
         // 如果连续点击两次相同的按钮 发送通知执行刷新操作
@@ -325,8 +323,8 @@
  */
 -(void)selectLabel:(UILabel *)label{
     if (label != self.selectLabel) {
-        label.textColor = [UIColor redColor];
-        self.selectLabel.textColor = [UIColor grayColor];
+        label.textColor = self.selColor;
+        self.selectLabel.textColor = self.norColor;
         self.selectLabel = label;
         CGFloat textWidth = [_titleWidths[label.tag] integerValue];
         [UIView animateWithDuration:0.25 animations:^{
@@ -335,7 +333,36 @@
         }];
     }
 }
-
+#pragma mark - 计算标题
+/**
+ 计算标题的间距,  文字的宽度,  文字的总长度
+ */
+- (void)setTitleWidth:(NSArray *)titleNames{
+    CGFloat totalWidth = 0;
+    for (NSString *title in titleNames) {
+        CGFloat textWidth = [self calculateTitleSize:title withMaxSize:CGSizeMake(MAXFLOAT, 0) withTextFont:self.titleFont].width;
+        totalWidth += textWidth;
+        [self.titleWidths addObject:@(textWidth)];
+    }
+    _totalWidth = totalWidth;
+    CGFloat titleMargin = (self.lc_width - totalWidth) / (titleNames.count + 1);
+    CGFloat totalWidthScale = self.lc_width / LCScreenW;
+    if (totalWidth > self.lc_width) {
+        _titleMargin = MinTitleMargin;
+    }else{
+        if (titleNames.count <= MinTitleCount) {
+            _titleMargin = (self.lc_width / titleNames.count - _totalWidth * totalWidthScale / titleNames.count) / 2;
+        }else{
+            _titleMargin = titleMargin > MinTitleMargin ? titleMargin : MinTitleMargin;
+        }
+    }
+}
+/**
+ *  计算文字的 尺寸
+ */
+-(CGSize)calculateTitleSize:(NSString *)title withMaxSize:(CGSize)maxSize withTextFont:(UIFont *)font{
+    return [title boundingRectWithSize:maxSize options:NSStringDrawingUsesLineFragmentOrigin attributes:@{NSFontAttributeName:font} context:nil].size;
+}
 #pragma mark - 接收通知 显示提示信息
 // 弹出通知
 -(void)showNoticeView:(NSNotification *)note{
